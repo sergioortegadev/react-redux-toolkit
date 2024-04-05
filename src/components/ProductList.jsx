@@ -1,11 +1,7 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  createProduct,
-  readProducts,
-  updateProduct,
-} from "../redux/productsSlice";
+import { createProduct, deleteProduct, readProducts, updateProduct } from "../redux/productsSlice";
 
 const ProductList = () => {
   const products = useSelector((state) => state.products);
@@ -34,49 +30,54 @@ const ProductList = () => {
   const handleCreateProduct = () => {
     if (newProductName.title) {
       const newProduct = {
-        id: Date.now(),
+        id: Date.now().toString(),
         title: newProductName.title,
         price: newProductName.price,
         images: newProductName.images,
       };
       dispatch(createProduct(newProduct));
+
       axios
         .post("http://localhost:3001/products", newProduct)
         .then(() => {
           setNewProductName(INITIAL_PROD);
         })
-        .catch((error) => console.error(error));
+        .catch((error) => console.warn(error));
     }
   };
 
   const handleUpdateProduct = (prod) => {
-    console.log(prod);
-    console.log(editedProduct);
-    if (
-      prod.title !== editedProduct.title ||
-      prod.price !== editedProduct.price
-    ) {
+    if (prod.title !== editedProduct.title || prod.price !== editedProduct.price) {
       const productToEdit = {
         ...editedProduct,
         title: editedProduct.title,
         price: parseInt(editedProduct.price),
       };
       dispatch(updateProduct(productToEdit));
-      console.log("producto actualizado: ");
-      console.log(editedProduct);
+
       setEditedProduct(null);
-      /*   axios
-        .post("http://localhost:3001/products", productToEdit)
+
+      axios
+        .put(`http://localhost:3001/products/${editedProduct.id}`, productToEdit)
         .then(() => {
           setNewProductName(INITIAL_PROD);
         })
-        .catch((error) => console.error(error)); */
+        .catch((error) => console.warn(error));
     } else {
-      console.log("producto sin cambios");
-      setEditedProduct(null);
+      setEditedProduct(null); //Si no se modifica title ni price que no haga request a DB ni al state de redux
     }
   };
-  const handleDeleteProduct = () => {};
+  const handleDeleteProduct = (prodId) => {
+    if (confirm(`Eliminar producto ID: ${prodId}?`)) {
+      dispatch(deleteProduct(prodId));
+
+      setEditedProduct(null);
+
+      axios
+        .delete(`http://localhost:3001/products/${prodId}`)
+        .catch((error) => console.warn("Error al eliminar archivo: ", error));
+    }
+  };
 
   return (
     <>
@@ -107,13 +108,13 @@ const ProductList = () => {
           }
         />
 
-        <button onClick={handleCreateProduct}>Add Product</button>
+        <button onClick={handleCreateProduct}>➕ Product</button>
       </aside>
       <h3>Product List</h3>
       <div className="cards">
         {products.data.map((product) => (
           <figure key={product.id}>
-            {editedProduct?.id === product.id ? (
+            {editedProduct?.id === product.id ? ( //Atento a "?" que permite "null"
               <div className="update-inputs">
                 <img src={product.images[0]} alt={product.title} />
                 <input
@@ -138,9 +139,8 @@ const ProductList = () => {
                     })
                   }
                 />
-                <button onClick={(e) => handleUpdateProduct(product)}>
-                  Guardar
-                </button>
+                <button onClick={() => handleUpdateProduct(product)}>Guardar</button>
+                <button onClick={() => setEditedProduct(null)}>Cancelar</button>
               </div>
             ) : (
               <>
@@ -149,7 +149,7 @@ const ProductList = () => {
                 <h4>$ {product.price}</h4>
                 <div className="edit-delete-btn">
                   <button onClick={() => setEditedProduct(product)}>✏</button>
-                  <button>❌</button>
+                  <button onClick={() => handleDeleteProduct(product.id)}>❌</button>
                 </div>
               </>
             )}
